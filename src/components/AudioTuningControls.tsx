@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gauge, Sliders, RotateCcw } from 'lucide-react';
+import { Sliders, RotateCcw } from 'lucide-react';
 
 interface AudioTuningControlsProps {
   speed: number;
@@ -24,12 +24,12 @@ export const AudioTuningControls: React.FC<AudioTuningControlsProps> = ({
   const isCustomized = speed !== 1.0 || pitch !== 0;
 
   return (
-    <div className="w-full bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/30 space-y-3.5">
+    <div className="w-full bg-slate-900/70 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+        <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
           <Sliders className="w-4 h-4 text-emerald-400" />
-          تنظیم دقیق سرعت و گام فرکانس صدا
-        </h2>
+          <span>تنظیمات صدا</span>
+        </span>
         {isCustomized && (
           <button
             type="button"
@@ -38,19 +38,16 @@ export const AudioTuningControls: React.FC<AudioTuningControlsProps> = ({
             className="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>تنظیم مجدد</span>
+            <span>بازنشانی</span>
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Speed Slider */}
         <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-300 font-medium flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5 text-blue-400" />
-              سرعت خوانش متن:
-            </span>
+            <span className="text-slate-300">سرعت خوانش:</span>
             <span className="text-emerald-400 font-mono font-bold">{speed.toFixed(2)}x</span>
           </div>
 
@@ -64,23 +61,14 @@ export const AudioTuningControls: React.FC<AudioTuningControlsProps> = ({
             onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
             className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
           />
-
-          <div className="flex justify-between text-[10px] text-slate-500">
-            <span>آهسته (0.75x)</span>
-            <span className={speed === 1.0 ? 'text-emerald-400 font-bold' : ''}>معمولی (1.0x)</span>
-            <span>سریع (1.45x)</span>
-          </div>
         </div>
 
         {/* Pitch Slider */}
         <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-300 font-medium flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-amber-400" />
-              گام و تنالیته صدا (Pitch):
-            </span>
-            <span className="text-amber-400 font-mono font-bold">
-              {pitch > 0 ? `+${pitch}Hz` : pitch < 0 ? `${pitch}Hz` : 'عادی (0)'}
+            <span className="text-slate-300">گام صدا:</span>
+            <span className="text-emerald-400 font-mono font-bold">
+              {pitch > 0 ? `+${pitch}` : pitch}
             </span>
           </div>
 
@@ -92,14 +80,8 @@ export const AudioTuningControls: React.FC<AudioTuningControlsProps> = ({
             value={pitch}
             disabled={disabled}
             onChange={(e) => onPitchChange(parseInt(e.target.value, 10))}
-            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
           />
-
-          <div className="flex justify-between text-[10px] text-slate-500">
-            <span>بم‌تر و سنگین (-20)</span>
-            <span className={pitch === 0 ? 'text-amber-400 font-bold' : ''}>طبیعی (0)</span>
-            <span>زیرتر و جوان‌تر (+25)</span>
-          </div>
         </div>
       </div>
     </div>

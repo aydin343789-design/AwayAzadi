@@ -96,9 +96,9 @@ export default function App() {
                     setErrorMessage(null);
                     setIsMenuOpen(true);
                   }}
-                  className="text-xs bg-rose-500/30 hover:bg-rose-500/40 text-white px-2 py-1 rounded font-bold"
+                  className="text-xs bg-rose-500/30 hover:bg-rose-500/40 text-white px-2 py-1 rounded font-medium"
                 >
-                  تنظیم کلید در منو
+                  تنظیم کلید
                 </button>
               )}
               <button

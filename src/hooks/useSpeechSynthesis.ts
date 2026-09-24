@@ -316,8 +316,8 @@ export function useSpeechSynthesis() {
 
       if (activeEngineMode === 'elevenlabs') {
         if (!elevenLabsApiKey.trim()) {
-          setErrorMessage('کلید API وارد نشده است. لطفاً ابتدا کلید خود را در منوی سه‌خط بالای صفحه تنظیم کنید.');
-          // Use high quality neural voice seamlessly
+          setErrorMessage('کلید API تنظیم نشده است. لطفاً کلید ElevenLabs را در منوی تنظیمات وارد کنید.');
+          // Use neural voice seamlessly
           await speakWithNeural(trimmed, voice, emotion);
           return;
         }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Languages, Trash2, Clipboard, Clock } from 'lucide-react';
+import { AlignRight, Trash2, Clipboard } from 'lucide-react';
 import { detectLanguage } from '../utils/languageDetector';
 
 interface TextInputProps {
@@ -27,40 +27,21 @@ export const TextInput: React.FC<TextInputProps> = ({ value, onChange, disabled 
   };
 
   return (
-    <div className="w-full bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/30 transition-all focus-within:border-emerald-500/50">
-      {/* Top toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-800/60">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-            <Languages className="w-4 h-4 text-emerald-400" />
-            متن ورودی (فارسی یا انگلیسی)
-          </span>
-
-          {value.trim() && (
-            <span
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
-                stats.language === 'fa'
-                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
-                  : 'bg-indigo-950/60 text-indigo-300 border-indigo-500/30'
-              }`}
-            >
-              {stats.primaryLang === 'mixed'
-                ? 'دوزبانه (فارسی و انگلیسی)'
-                : stats.language === 'fa'
-                ? 'زبان فارسی'
-                : 'English Language'}
-            </span>
-          )}
-        </div>
+    <div className="w-full bg-slate-900/70 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
+          <AlignRight className="w-4 h-4 text-emerald-400" />
+          <span>متن ورودی</span>
+        </span>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handlePaste}
             disabled={disabled}
-            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white transition-colors"
-            title="چسباندن متن از حافظه کلیپ‌بورد"
+            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
           >
             <Clipboard className="w-3.5 h-3.5" />
             <span>چسباندن</span>
@@ -71,7 +52,6 @@ export const TextInput: React.FC<TextInputProps> = ({ value, onChange, disabled 
               onClick={handleClear}
               disabled={disabled}
               className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/20 transition-colors"
-              title="پاک کردن متن"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>پاکسازی</span>
@@ -81,35 +61,26 @@ export const TextInput: React.FC<TextInputProps> = ({ value, onChange, disabled 
       </div>
 
       {/* Main Textarea */}
-      <div className="relative">
+      <div>
         <textarea
           dir={stats.language === 'fa' ? 'rtl' : 'ltr'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          placeholder="متن فارسی یا انگلیسی خود را اینجا بنویسید..."
-          rows={6}
-          className="w-full bg-slate-950/70 text-slate-100 placeholder-slate-500 rounded-xl p-3.5 text-sm sm:text-base border border-slate-800/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 resize-y min-h-[160px] leading-relaxed tracking-wide font-normal transition-all"
+          placeholder="متن مورد نظر خود را بنویسید..."
+          rows={5}
+          className="w-full bg-slate-950/70 text-slate-100 placeholder-slate-500 rounded-xl p-3.5 text-sm sm:text-base border border-slate-800/80 focus:outline-none focus:border-emerald-500 resize-y min-h-[140px] leading-relaxed transition-all"
         />
       </div>
 
-      {/* Bottom stats counter */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800/40">
+      {/* Bottom Counter */}
+      <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-800/40">
         <div className="flex items-center gap-4">
-          <span>
-            تعداد کاراکتر: <strong className="text-slate-200">{stats.charCount}</strong>
-          </span>
-          <span>
-            تعداد کلمه: <strong className="text-slate-200">{stats.wordCount}</strong>
-          </span>
+          <span>{stats.charCount} کاراکتر</span>
+          <span>{stats.wordCount} کلمه</span>
         </div>
         {stats.charCount > 0 && (
-          <div className="flex items-center gap-1 text-slate-400">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>
-              مدت تخمینی صدا: <strong className="text-emerald-400">~{stats.estimatedDurationSeconds} ثانیه</strong>
-            </span>
-          </div>
+          <span>تخمین زمان: ~{stats.estimatedDurationSeconds} ثانیه</span>
         )}
       </div>
     </div>
