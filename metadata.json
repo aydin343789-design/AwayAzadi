@@ -1,0 +1,6 @@
+{
+  "name": "آوای ایران آزاد - سنتز صدای آفلاین",
+  "description": "تبدیل متن به صدا کاملاً آفلاین برای زبان فارسی و انگلیسی با موتور سنتز فرمنتی Web Audio API و قابلیت تبدیل به APK",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
