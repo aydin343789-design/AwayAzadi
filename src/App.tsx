@@ -27,8 +27,6 @@ export default function App() {
     isSynthesizing,
     activeEngineMode,
     changeActiveEngineMode,
-    offlineEngineMode,
-    changeOfflineEngineMode,
     speechSpeed,
     setSpeechSpeed,
     speechPitch,
@@ -91,28 +89,41 @@ export default function App() {
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{errorMessage}</span>
             </div>
-            <button
-              onClick={() => setErrorMessage(null)}
-              className="text-slate-400 hover:text-white px-2 py-0.5 rounded text-[11px] bg-slate-900/60"
-            >
-              بستن
-            </button>
+            <div className="flex items-center gap-2">
+              {!elevenLabsApiKey.trim() && activeEngineMode === 'elevenlabs' && (
+                <button
+                  onClick={() => {
+                    setErrorMessage(null);
+                    setIsMenuOpen(true);
+                  }}
+                  className="text-xs bg-rose-500/30 hover:bg-rose-500/40 text-white px-2 py-1 rounded font-bold"
+                >
+                  تنظیم کلید در منو
+                </button>
+              )}
+              <button
+                onClick={() => setErrorMessage(null)}
+                className="text-slate-400 hover:text-white px-2 py-0.5 rounded text-[11px] bg-slate-900/60"
+              >
+                بستن
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Engine Selection & Online API Key directly on Main Page */}
+        {/* Engine Selection & Online Character Selection on Main Page (API key is in Hamburger menu) */}
         <EngineSelector
           activeMode={activeEngineMode}
           onChangeMode={changeActiveEngineMode}
-          apiKey={elevenLabsApiKey}
-          onUpdateApiKey={updateElevenLabsKey}
+          hasApiKey={Boolean(elevenLabsApiKey.trim())}
           selectedVoiceId={elevenLabsVoiceId}
           onSelectVoiceId={selectElevenLabsVoice}
           customVoiceId={customVoiceId}
           onChangeCustomVoiceId={setCustomVoiceId}
           elevenLabsVoices={elevenLabsVoices}
           isValidatingKey={isValidatingKey}
-          onRefreshVoices={loadElevenLabsVoices}
+          onRefreshVoices={() => loadElevenLabsVoices()}
+          onOpenSettingsMenu={() => setIsMenuOpen(true)}
           disabled={isPlaying || isSynthesizing}
         />
 
@@ -176,8 +187,6 @@ export default function App() {
         onToggleEnabled={toggleElevenLabsEnabled}
         onSelectVoiceId={selectElevenLabsVoice}
         onRefreshVoices={loadElevenLabsVoices}
-        offlineEngineMode={offlineEngineMode}
-        onChangeOfflineEngineMode={changeOfflineEngineMode}
         history={history}
         onPlayHistoryItem={handleHistoryPlay}
         onSelectHistoryItem={(t) => setText(t)}

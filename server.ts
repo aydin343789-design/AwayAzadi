@@ -9,6 +9,30 @@ import { EdgeTTS } from 'node-edge-tts';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+// Text preparation for standard Iranian Persian
+function cleanAndPunctuatePersian(input: string): string {
+  if (!input) return '';
+  let str = input
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/ة/g, 'ت')
+    .replace(/ۀ/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ی')
+    .replace(/,/g, '،')
+    .replace(/\?/g, '؟')
+    .replace(/[«»"]/g, '')
+    .replace(/[\u200B\uFEFF]/g, '')
+    .replace(/[\u200C\u200D]/g, ' ')
+    .trim();
+
+  // Ensure end of sentence has terminal punctuation for proper intonation
+  if (!/[.!?؟،؛]$/.test(str)) {
+    str += '.';
+  }
+  return str;
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
@@ -29,6 +53,7 @@ async function startServer() {
       }
 
       // Map voice to Microsoft Persian Neural Models
+      // Dilara (زن) & Farid (مرد)
       let selectedNeuralVoice = 'fa-IR-DilaraNeural';
       let targetPitch = 0;
       let targetRate = 0;
@@ -37,34 +62,43 @@ async function startServer() {
         selectedNeuralVoice = 'fa-IR-FaridNeural';
       } else if (voice === 'child') {
         selectedNeuralVoice = 'fa-IR-DilaraNeural';
-        targetPitch += 32;
-        targetRate += 12;
+        targetPitch += 34;
+        targetRate += 10;
       } else {
         selectedNeuralVoice = 'fa-IR-DilaraNeural';
       }
 
-      // Apply emotion modifiers
+      // Enhanced Emotion Prosody
       switch (emotion) {
         case 'news':
-          targetRate += 8;
+          // رسمی و خبری: لحن استوار، شمرده و بدون نوسان شدید
+          targetRate += 6;
+          targetPitch -= 2;
           break;
         case 'emotional':
-          targetRate -= 6;
-          targetPitch -= 4;
+          // احساسی و صمیمی: ضرب‌آهنگ آرام، گرم و پرمحبت
+          targetRate -= 10;
+          targetPitch += 5;
           break;
         case 'happy':
-          targetRate += 10;
-          targetPitch += 14;
+          // شاد و پرانرژی: لحن نشاط‌آور و ریتم صعودی
+          targetRate += 12;
+          targetPitch += 16;
           break;
         case 'sad':
-          targetRate -= 15;
-          targetPitch -= 12;
+          // غمگین و آرام: افت سرعت، فرود لحن و مکث‌های عمیق‌تر
+          targetRate -= 18;
+          targetPitch -= 14;
           break;
         case 'excited':
+          // هیجان‌زده و حماسی: پرتوان، پرشور و سریع
           targetRate += 18;
           targetPitch += 20;
           break;
+        case 'normal':
         default:
+          targetRate += 0;
+          targetPitch += 0;
           break;
       }
 
@@ -79,6 +113,8 @@ async function startServer() {
       const rateStr = (clampedRate >= 0 ? `+${clampedRate}` : `${clampedRate}`) + '%';
       const pitchStr = (clampedPitch >= 0 ? `+${clampedPitch}` : `${clampedPitch}`) + 'Hz';
 
+      const processedText = cleanAndPunctuatePersian(text);
+
       const tempFile = path.join(
         os.tmpdir(),
         `tts-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.mp3`
@@ -91,7 +127,7 @@ async function startServer() {
         outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
       });
 
-      await tts.ttsPromise(text.trim(), tempFile);
+      await tts.ttsPromise(processedText, tempFile);
 
       if (!fs.existsSync(tempFile)) {
         throw new Error('فایل صوتی تولید نشد');

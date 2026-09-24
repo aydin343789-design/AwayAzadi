@@ -1,9 +1,10 @@
 import { EmotionType, ElevenLabsVoice, VoiceType } from '../types/tts';
+import { preparePersianSpeechText } from '../utils/persianNormalizer';
 
 export const CURATED_PERSIAN_ELEVENLABS_VOICES: ElevenLabsVoice[] = [
   {
     voice_id: 'CwhRBWXzGAHq8TQ4Fs17',
-    name: 'راجر (Roger) - مرد رسمی، راوی شیوا و بدون لهجه',
+    name: 'راجر (Roger) - مرد رسمی، راوی شیوا و استوار',
     category: 'premade',
     labels: { gender: 'male', accent: 'persian-recommended' },
   },
@@ -27,7 +28,7 @@ export const CURATED_PERSIAN_ELEVENLABS_VOICES: ElevenLabsVoice[] = [
   },
   {
     voice_id: 'EXAVITQu4vr4xnSDxMaL',
-    name: 'بلا (Bella) - زن پرانرژی و هیجان‌انگیز',
+    name: 'بلا (Bella) - زن پرانرژی و جذاب',
     category: 'premade',
     labels: { gender: 'female', accent: 'persian-recommended' },
   },
@@ -39,7 +40,7 @@ export const CURATED_PERSIAN_ELEVENLABS_VOICES: ElevenLabsVoice[] = [
   },
   {
     voice_id: 'onwK4e9ZLuTAKqWW03F9',
-    name: 'دنیل (Daniel) - جوان، محاوره‌ای و شاد (کودک/نوجوان)',
+    name: 'دنیل (Daniel) - نوجوان، محاوره‌ای و شاد',
     category: 'premade',
     labels: { gender: 'child', accent: 'persian-recommended' },
   },
@@ -62,46 +63,27 @@ export function getVoiceIdForType(voice: VoiceType, preferredVoiceId?: string): 
 }
 
 /**
- * Optimized voice settings for standard Iranian Persian (Farsi)
- * Prevents Kurdish/Afghan accent drift by preserving high stability and similarity
+ * Highly tuned parameters for standard Iranian Persian pronunciation
+ * Higher stability prevents phonetic sliding or accent deviations
  */
 export function getEmotionVoiceSettings(emotion: EmotionType) {
   switch (emotion) {
     case 'news':
-      return { stability: 0.75, similarity_boost: 0.88, style: 0.12, use_speaker_boost: true };
+      return { stability: 0.82, similarity_boost: 0.92, style: 0.05, use_speaker_boost: true };
     case 'emotional':
-      return { stability: 0.55, similarity_boost: 0.82, style: 0.35, use_speaker_boost: true };
+      return { stability: 0.62, similarity_boost: 0.86, style: 0.35, use_speaker_boost: true };
     case 'happy':
-      return { stability: 0.58, similarity_boost: 0.82, style: 0.30, use_speaker_boost: true };
+      return { stability: 0.65, similarity_boost: 0.84, style: 0.30, use_speaker_boost: true };
     case 'sad':
-      return { stability: 0.70, similarity_boost: 0.78, style: 0.22, use_speaker_boost: true };
+      return { stability: 0.78, similarity_boost: 0.80, style: 0.15, use_speaker_boost: true };
     case 'excited':
-      return { stability: 0.52, similarity_boost: 0.85, style: 0.40, use_speaker_boost: true };
+      return { stability: 0.58, similarity_boost: 0.88, style: 0.38, use_speaker_boost: true };
     case 'normal':
     default:
-      return { stability: 0.68, similarity_boost: 0.85, style: 0.20, use_speaker_boost: true };
+      return { stability: 0.72, similarity_boost: 0.88, style: 0.15, use_speaker_boost: true };
   }
 }
 
-/**
- * Normalizes Persian characters and removes Arabic phoneme substitutions
- * so ElevenLabs doesn't misread Persian words
- */
-export function normalizePersianForTTS(input: string): string {
-  return input
-    .replace(/ي/g, 'ی')
-    .replace(/ك/g, 'ک')
-    .replace(/ة/g, 'ت')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ی')
-    .replace(/[\u200B\u200C\u200D\uFEFF]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Fetch available voices using the user's ElevenLabs API key
- */
 export async function fetchElevenLabsVoices(apiKey: string): Promise<ElevenLabsVoice[]> {
   const cleanKey = apiKey.trim();
   if (!cleanKey) return DEFAULT_ELEVENLABS_VOICES;
@@ -131,7 +113,6 @@ export async function fetchElevenLabsVoices(apiKey: string): Promise<ElevenLabsV
         })
       );
 
-      // Merge user custom voices first, followed by curated voices
       const combined = [...userVoices];
       for (const cur of CURATED_PERSIAN_ELEVENLABS_VOICES) {
         if (!combined.some((v) => v.voice_id === cur.voice_id)) {
@@ -148,7 +129,7 @@ export async function fetchElevenLabsVoices(apiKey: string): Promise<ElevenLabsV
 }
 
 /**
- * Synthesize speech using ElevenLabs Multilingual v2 with locked Iranian Persian language code
+ * Ultra-high fidelity synthesis using ElevenLabs Multilingual v2 with 192kbps output
  */
 export async function synthesizeWithElevenLabs(
   text: string,
@@ -161,12 +142,13 @@ export async function synthesizeWithElevenLabs(
     throw new Error('کلید API الون‌لبز وارد نشده است.');
   }
 
-  const normalizedText = normalizePersianForTTS(text);
+  const normalizedText = preparePersianSpeechText(text);
   const voiceSettings = getEmotionVoiceSettings(emotion);
 
   try {
+    // Request 192kbps MP3 (mp3_44100_192) for studio audio clarity
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_192`,
       {
         method: 'POST',
         headers: {
@@ -176,7 +158,6 @@ export async function synthesizeWithElevenLabs(
         body: JSON.stringify({
           text: normalizedText,
           model_id: 'eleven_multilingual_v2',
-          // Explicitly lock to Persian language so ElevenLabs doesn't use Kurdish/Dari/Pashto accents!
           language_code: 'fa',
           voice_settings: voiceSettings,
         }),
@@ -185,10 +166,10 @@ export async function synthesizeWithElevenLabs(
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new Error('کلید API الون‌لبز نامعتبر یا منقضی است. لطفاً کلید صحیح را در بخش تنظیمات وارد کنید.');
+        throw new Error('کلید API الون‌لبز نامعتبر یا منقضی است. لطفاً کلید صحیح را در منوی سه‌خط وارد کنید.');
       }
       if (response.status === 429) {
-        throw new Error('سهمیه کاراکتر حساب ElevenLabs به پایان رسیده است.');
+        throw new Error('سهمیه کاراکتر حساب ElevenLabs شما به پایان رسیده است.');
       }
 
       let errDetail = `کد ${response.status}`;
@@ -198,9 +179,9 @@ export async function synthesizeWithElevenLabs(
           errDetail = errJson.detail.message;
         }
       } catch {
-        // Fallback
+        // Ignore
       }
-      throw new Error(`خطای سرور ElevenLabs: ${errDetail}`);
+      throw new Error(`خطای سرویس ElevenLabs: ${errDetail}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();

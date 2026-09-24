@@ -1,14 +1,39 @@
-export type VoiceType = 'male' | 'female' | 'child';
-
-export type EmotionType = 'normal' | 'news' | 'emotional' | 'happy' | 'sad' | 'excited';
+export type Language = 'fa' | 'en' | 'auto';
 
 export type DetectedLanguage = 'fa' | 'en' | 'mixed';
 
-export type EngineType = 'neural' | 'elevenlabs' | 'browser' | 'dsp';
+export type VoiceType = 'male' | 'female' | 'child';
 
-export type ActiveEngineMode = 'neural' | 'elevenlabs' | 'offline';
+export type EmotionType = 'normal' | 'happy' | 'sad' | 'excited' | 'news' | 'emotional';
 
-export type OfflineEngineMode = 'system' | 'dsp';
+export type EngineType = 'neural' | 'elevenlabs';
+
+export type ActiveEngineMode = 'neural' | 'elevenlabs';
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  category?: string;
+  labels?: Record<string, string>;
+}
+
+export interface VoiceOption {
+  id: VoiceType;
+  name: string;
+  description: string;
+  neuralVoiceName: string;
+  avatar: string;
+  gender: 'male' | 'female';
+}
+
+export interface EmotionOption {
+  id: EmotionType;
+  name: string;
+  description: string;
+  iconName: string;
+  pitchOffset: number;
+  speedMultiplier: number;
+}
 
 export interface HistoryItem {
   id: string;
@@ -19,46 +44,4 @@ export interface HistoryItem {
   engine: EngineType;
   timestamp: number;
   duration?: number;
-  audioBlobUrl?: string;
-}
-
-export interface VoiceConfig {
-  id: VoiceType;
-  titleFa: string;
-  titleEn: string;
-  basePitch: number;
-  speedMultiplier: number;
-  descriptionFa: string;
-}
-
-export interface EmotionConfig {
-  id: EmotionType;
-  titleFa: string;
-  titleEn: string;
-  pitchOffset: number;
-  tempoMultiplier: number;
-  vibratoRate: number;
-  vibratoDepth: number;
-  energy: number;
-  descriptionFa: string;
-}
-
-export interface FormantFrequencies {
-  f1: number;
-  f2: number;
-  f3: number;
-  bandwidth1?: number;
-  bandwidth2?: number;
-  bandwidth3?: number;
-  gain?: number;
-  duration?: number;
-  isNoise?: boolean;
-}
-
-export interface ElevenLabsVoice {
-  voice_id: string;
-  name: string;
-  category?: string;
-  preview_url?: string;
-  labels?: Record<string, string>;
 }

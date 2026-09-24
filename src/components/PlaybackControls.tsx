@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Square, Pause, Download, Volume2, Loader2, Music, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { Play, Square, Pause, Download, Volume2, Loader2, Sparkles, Wifi } from 'lucide-react';
 import { ActiveEngineMode } from '../types/tts';
 
 interface PlaybackControlsProps {
@@ -25,16 +25,13 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onPause,
   onResume,
   onStop,
-  onDownloadWav,
   onDownloadMp3,
   disabled,
 }) => {
   const getModeLabel = () => {
     switch (activeMode) {
       case 'elevenlabs':
-        return 'ElevenLabs AI';
-      case 'offline':
-        return 'موتور آفلاین دستگاه';
+        return 'ElevenLabs AI (۱۹۲ کیلوبیت)';
       case 'neural':
       default:
         return 'صدای هوشمند (بدون وی‌پی‌ان)';
@@ -66,10 +63,10 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                 {isSynthesizing
                   ? `در حال پردازش با ${getModeLabel()}...`
                   : isPlaying
-                  ? `در حال پخش صدا (${getModeLabel()})`
+                  ? `در حال پخش صدا با بالاترین کیفیت (${getModeLabel()})`
                   : isPaused
                   ? 'پخش موقتاً متوقف شد'
-                  : 'آماده برای تبدیل متن به گفتار'}
+                  : 'آماده برای تبدیل متن به گفتار استودیویی'}
               </span>
               {isPlaying && (
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
@@ -112,8 +109,6 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none ${
                 activeMode === 'elevenlabs'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-600/30'
-                  : activeMode === 'offline'
-                  ? 'bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 shadow-amber-600/30'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
               }`}
             >
@@ -126,16 +121,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                 <>
                   {activeMode === 'elevenlabs' ? (
                     <Sparkles className="w-5 h-5 text-indigo-200" />
-                  ) : activeMode === 'offline' ? (
-                    <WifiOff className="w-5 h-5 text-amber-200" />
                   ) : (
                     <Wifi className="w-5 h-5 text-emerald-200" />
                   )}
                   <span>
                     {activeMode === 'elevenlabs'
-                      ? 'پخش با ElevenLabs'
-                      : activeMode === 'offline'
-                      ? 'پخش آفلاین دستگاه'
+                      ? 'پخش استودیویی ElevenLabs'
                       : 'پخش صدای طبیعی (بدون فیلترشکن)'}
                   </span>
                 </>
@@ -179,10 +170,10 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             onClick={onDownloadMp3}
             disabled={disabled || isSynthesizing}
             className="flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-emerald-500/50 text-xs font-semibold transition-all disabled:opacity-40 shadow-sm"
-            title="دانلود فایل صوتی MP3 با کیفیت بالا"
+            title="دانلود فایل صوتی MP3 با کیفیت استودیویی"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>دانلود MP3</span>
+            <span>دانلود فایل صوتی</span>
           </button>
         </div>
       </div>
