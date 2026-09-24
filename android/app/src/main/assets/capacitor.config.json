@@ -1,0 +1,9 @@
+{
+	"appId": "com.awa.iran",
+	"appName": "آوای ایران آزاد",
+	"webDir": "dist",
+	"bundledWebRuntime": false,
+	"android": {
+		"allowMixedContent": true
+	}
+}
