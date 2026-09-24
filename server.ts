@@ -2,12 +2,118 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import os from 'os';
+import { EdgeTTS } from 'node-edge-tts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function startServer() {
   const app = express();
+  app.use(express.json({ limit: '10mb' }));
+
+  // High-Quality Iranian Neural TTS API (No VPN needed, 100% fluent standard Persian)
+  app.post('/api/tts', async (req, res) => {
+    try {
+      const {
+        text,
+        voice = 'female',
+        emotion = 'normal',
+        rate = 0,
+        pitch = 0,
+      } = req.body;
+
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ error: 'متنی ارسال نشده است' });
+      }
+
+      // Map voice to Microsoft Persian Neural Models
+      let selectedNeuralVoice = 'fa-IR-DilaraNeural';
+      let targetPitch = 0;
+      let targetRate = 0;
+
+      if (voice === 'male') {
+        selectedNeuralVoice = 'fa-IR-FaridNeural';
+      } else if (voice === 'child') {
+        selectedNeuralVoice = 'fa-IR-DilaraNeural';
+        targetPitch += 32;
+        targetRate += 12;
+      } else {
+        selectedNeuralVoice = 'fa-IR-DilaraNeural';
+      }
+
+      // Apply emotion modifiers
+      switch (emotion) {
+        case 'news':
+          targetRate += 8;
+          break;
+        case 'emotional':
+          targetRate -= 6;
+          targetPitch -= 4;
+          break;
+        case 'happy':
+          targetRate += 10;
+          targetPitch += 14;
+          break;
+        case 'sad':
+          targetRate -= 15;
+          targetPitch -= 12;
+          break;
+        case 'excited':
+          targetRate += 18;
+          targetPitch += 20;
+          break;
+        default:
+          break;
+      }
+
+      // User custom adjustments
+      targetRate += Number(rate) || 0;
+      targetPitch += Number(pitch) || 0;
+
+      // Bound rates and pitches to valid Edge TTS ranges
+      const clampedRate = Math.max(-50, Math.min(100, targetRate));
+      const clampedPitch = Math.max(-50, Math.min(50, targetPitch));
+
+      const rateStr = (clampedRate >= 0 ? `+${clampedRate}` : `${clampedRate}`) + '%';
+      const pitchStr = (clampedPitch >= 0 ? `+${clampedPitch}` : `${clampedPitch}`) + 'Hz';
+
+      const tempFile = path.join(
+        os.tmpdir(),
+        `tts-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.mp3`
+      );
+
+      const tts = new EdgeTTS({
+        voice: selectedNeuralVoice,
+        rate: rateStr,
+        pitch: pitchStr,
+        outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+      });
+
+      await tts.ttsPromise(text.trim(), tempFile);
+
+      if (!fs.existsSync(tempFile)) {
+        throw new Error('فایل صوتی تولید نشد');
+      }
+
+      const audioBuffer = await fs.promises.readFile(tempFile);
+      await fs.promises.unlink(tempFile).catch(() => {});
+
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Length', audioBuffer.length);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.send(audioBuffer);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Error in /api/tts:', msg);
+      return res.status(500).json({
+        error: 'خطا در سنتز صدا با موتور عصبی',
+        details: msg,
+      });
+    }
+  });
+
   const isProd = process.env.NODE_ENV === 'production';
 
   if (!isProd) {

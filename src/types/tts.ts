@@ -4,7 +4,9 @@ export type EmotionType = 'normal' | 'news' | 'emotional' | 'happy' | 'sad' | 'e
 
 export type DetectedLanguage = 'fa' | 'en' | 'mixed';
 
-export type EngineType = 'elevenlabs' | 'browser' | 'dsp';
+export type EngineType = 'neural' | 'elevenlabs' | 'browser' | 'dsp';
+
+export type ActiveEngineMode = 'neural' | 'elevenlabs' | 'offline';
 
 export type OfflineEngineMode = 'system' | 'dsp';
 

@@ -1,24 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { EmotionType, EngineType, HistoryItem, VoiceType, ElevenLabsVoice, OfflineEngineMode } from '../types/tts';
+import {
+  EmotionType,
+  EngineType,
+  HistoryItem,
+  VoiceType,
+  ElevenLabsVoice,
+  ActiveEngineMode,
+  OfflineEngineMode,
+} from '../types/tts';
 import { detectLanguage } from '../utils/languageDetector';
 import {
-  exportToWav,
-  exportToMp3,
-  VOICE_PROFILES,
-  EMOTION_PROFILES,
-  synthesizeFormantAudio,
-  downloadBlob,
-} from '../utils/audioExporter';
-import {
   DEFAULT_ELEVENLABS_VOICES,
+  CURATED_PERSIAN_ELEVENLABS_VOICES,
   fetchElevenLabsVoices,
   getVoiceIdForType,
   synthesizeWithElevenLabs,
 } from '../services/elevenlabs';
+import { synthesizeNeuralSpeech } from '../services/neuralSpeech';
 import { globalAudioPlayer } from '../utils/audioBufferPlayer';
 import { persianToPhoneticLatin } from '../utils/persianTransliteration';
+import { downloadBlob } from '../utils/audioExporter';
 
-const HISTORY_STORAGE_KEY = 'awa_tts_history_v2';
+const HISTORY_STORAGE_KEY = 'awa_tts_history_v3';
+const ACTIVE_MODE_STORAGE = 'awa_active_mode_v3';
 const ELEVENLABS_KEY_STORAGE = 'awa_elevenlabs_key';
 const ELEVENLABS_VOICE_STORAGE = 'awa_elevenlabs_voice';
 const ELEVENLABS_ENABLED_STORAGE = 'awa_elevenlabs_enabled';
@@ -28,14 +32,20 @@ export function useSpeechSynthesis() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
-  const [activeEngine, setActiveEngine] = useState<EngineType>('browser');
+  const [activeEngine, setActiveEngine] = useState<EngineType>('neural');
+  const [activeEngineMode, setActiveEngineMode] = useState<ActiveEngineMode>('neural');
   const [offlineEngineMode, setOfflineEngineMode] = useState<OfflineEngineMode>('system');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Speed and Pitch Tuning
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
+  const [speechPitch, setSpeechPitch] = useState<number>(0);
+
   // ElevenLabs State
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState<string>('');
-  const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState<string>('pNInz6obpgDQGcFmaJgB');
+  const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState<string>('CwhRBWXzGAHq8TQ4Fs17'); // Roger (Persian-recommended)
+  const [customVoiceId, setCustomVoiceId] = useState<string>('');
   const [isElevenLabsEnabled, setIsElevenLabsEnabled] = useState<boolean>(false);
   const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>(DEFAULT_ELEVENLABS_VOICES);
   const [isValidatingKey, setIsValidatingKey] = useState<boolean>(false);
@@ -64,6 +74,11 @@ export function useSpeechSynthesis() {
   // Load stored settings and history
   useEffect(() => {
     try {
+      const savedMode = localStorage.getItem(ACTIVE_MODE_STORAGE) as ActiveEngineMode | null;
+      if (savedMode === 'neural' || savedMode === 'elevenlabs' || savedMode === 'offline') {
+        setActiveEngineMode(savedMode);
+      }
+
       const savedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
       if (savedHistory) {
         setHistory(JSON.parse(savedHistory));
@@ -93,11 +108,17 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
+  // Change active mode
+  const changeActiveEngineMode = useCallback((mode: ActiveEngineMode) => {
+    setActiveEngineMode(mode);
+    localStorage.setItem(ACTIVE_MODE_STORAGE, mode);
+  }, []);
+
   // Load ElevenLabs voices if key exists
   const loadElevenLabsVoices = useCallback(async (key: string) => {
     const cleanKey = key.trim();
     if (!cleanKey) {
-      setElevenLabsVoices(DEFAULT_ELEVENLABS_VOICES);
+      setElevenLabsVoices(CURATED_PERSIAN_ELEVENLABS_VOICES);
       return;
     }
     setIsValidatingKey(true);
@@ -120,6 +141,8 @@ export function useSpeechSynthesis() {
       setElevenLabsApiKey(trimmed);
       localStorage.setItem(ELEVENLABS_KEY_STORAGE, trimmed);
       if (trimmed) {
+        setIsElevenLabsEnabled(true);
+        localStorage.setItem(ELEVENLABS_ENABLED_STORAGE, 'true');
         loadElevenLabsVoices(trimmed);
       }
     },
@@ -129,6 +152,13 @@ export function useSpeechSynthesis() {
   const toggleElevenLabsEnabled = useCallback((enabled: boolean) => {
     setIsElevenLabsEnabled(enabled);
     localStorage.setItem(ELEVENLABS_ENABLED_STORAGE, enabled ? 'true' : 'false');
+    if (enabled) {
+      setActiveEngineMode('elevenlabs');
+      localStorage.setItem(ACTIVE_MODE_STORAGE, 'elevenlabs');
+    } else {
+      setActiveEngineMode('neural');
+      localStorage.setItem(ACTIVE_MODE_STORAGE, 'neural');
+    }
   }, []);
 
   const selectElevenLabsVoice = useCallback((voiceId: string) => {
@@ -234,37 +264,12 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
-  // Play using Web Audio DSP Synthesizer (Pure Local Offline Fallback)
-  const speakWithDsp = useCallback(
-    async (text: string, voice: VoiceType, emotion: EmotionType): Promise<void> => {
-      stop();
-      setIsSynthesizing(true);
-      setActiveEngine('dsp');
-      try {
-        const audioBuffer = await synthesizeFormantAudio(text, voice, emotion);
-        globalAudioPlayer.playBuffer(audioBuffer, () => {
-          setIsPlaying(false);
-          setIsPaused(false);
-        });
-        setIsPlaying(true);
-        setIsPaused(false);
-      } catch (err) {
-        console.warn('DSP playback warning:', err);
-        setIsPlaying(false);
-        setIsPaused(false);
-      } finally {
-        setIsSynthesizing(false);
-      }
-    },
-    [stop]
-  );
-
-  // Play using Browser Native SpeechSynthesis with automatic phonetic fallback
+  // Play using Browser Native SpeechSynthesis
   const speakWithBrowser = useCallback(
-    (text: string, voice: VoiceType, emotion: EmotionType, lang: 'fa' | 'en'): Promise<void> => {
+    (text: string, voice: VoiceType, emotion: EmotionType): Promise<void> => {
       return new Promise((resolve) => {
         if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-          speakWithDsp(text, voice, emotion).then(resolve);
+          resolve();
           return;
         }
 
@@ -282,61 +287,73 @@ export function useSpeechSynthesis() {
             ? availableVoicesRef.current
             : window.speechSynthesis.getVoices();
 
+        // Check for dedicated Persian/Farsi voice on device (Chrome, Edge, Android)
         const persianVoice = voices.find(
           (v) =>
             /fa|fas|farsi|iran/i.test(v.lang) ||
-            /farsi|persian/i.test(v.name)
+            /farsi|persian|dilara|farid/i.test(v.name)
         );
 
         let spokenText = text;
         let chosenVoice: SpeechSynthesisVoice | undefined = persianVoice;
         let targetLang = 'fa-IR';
 
-        if (lang === 'fa') {
-          if (persianVoice) {
-            chosenVoice = persianVoice;
-            spokenText = text;
-            targetLang = persianVoice.lang || 'fa-IR';
-          } else {
-            // No native Persian voice installed locally:
-            // Convert Persian text to natural phonetic Latin so default local voice can pronounce it clearly!
-            spokenText = persianToPhoneticLatin(text);
-            targetLang = 'en-US';
-
-            // Find an English or default local voice
-            chosenVoice = voices.find(
+        if (persianVoice) {
+          chosenVoice = persianVoice;
+          spokenText = text;
+          targetLang = persianVoice.lang || 'fa-IR';
+        } else {
+          // Fallback to clear phonetic Latin pronunciation on default device engine
+          spokenText = persianToPhoneticLatin(text);
+          targetLang = 'en-US';
+          chosenVoice =
+            voices.find(
               (v) =>
                 v.lang.toLowerCase().startsWith('en') &&
                 (voice === 'female' ? /female|woman|samantha|zira/i.test(v.name) : true)
             ) || voices[0];
-          }
-        } else {
-          chosenVoice = voices.find(
-            (v) =>
-              v.lang.toLowerCase().startsWith('en') &&
-              (voice === 'female' ? /female|woman|samantha|zira/i.test(v.name) : true)
-          ) || voices[0];
-          targetLang = 'en-US';
         }
 
         const utterance = new SpeechSynthesisUtterance(spokenText);
         activeUtteranceRef.current = utterance;
 
-        const voiceCfg = VOICE_PROFILES[voice] || VOICE_PROFILES.male;
-        const emoCfg = EMOTION_PROFILES[emotion] || EMOTION_PROFILES.normal;
+        // Apply speed, emotion, and pitch
+        let rateMultiplier = speechSpeed;
+        let pitchMultiplier = 1.0;
 
-        utterance.rate = Math.min(1.25, Math.max(0.75, emoCfg.tempo * (voice === 'child' ? 1.05 : 0.95)));
-        utterance.pitch = Math.min(1.5, Math.max(0.6, (voiceCfg.basePitch / 160) * emoCfg.pitchShift));
+        if (emotion === 'news') rateMultiplier *= 1.1;
+        if (emotion === 'emotional') rateMultiplier *= 0.92;
+        if (emotion === 'happy') {
+          rateMultiplier *= 1.08;
+          pitchMultiplier *= 1.15;
+        }
+        if (emotion === 'sad') {
+          rateMultiplier *= 0.85;
+          pitchMultiplier *= 0.88;
+        }
+        if (emotion === 'excited') {
+          rateMultiplier *= 1.2;
+          pitchMultiplier *= 1.2;
+        }
+
+        if (voice === 'child') {
+          pitchMultiplier *= 1.35;
+          rateMultiplier *= 1.05;
+        } else if (voice === 'female') {
+          pitchMultiplier *= 1.15;
+        } else {
+          pitchMultiplier *= 0.9;
+        }
+
+        utterance.rate = Math.min(2.0, Math.max(0.6, rateMultiplier));
+        utterance.pitch = Math.min(2.0, Math.max(0.5, pitchMultiplier));
         utterance.lang = targetLang;
 
         if (chosenVoice) {
           utterance.voice = chosenVoice;
         }
 
-        let started = false;
-
         utterance.onstart = () => {
-          started = true;
           setIsPlaying(true);
           setIsPaused(false);
         };
@@ -352,34 +369,26 @@ export function useSpeechSynthesis() {
           if (e.error === 'canceled' || e.error === 'interrupted') {
             return;
           }
-          console.warn('SpeechSynthesis error, falling back to DSP:', e.error);
+          console.warn('SpeechSynthesis error:', e.error);
           setIsPlaying(false);
           setIsPaused(false);
           activeUtteranceRef.current = null;
-          speakWithDsp(text, voice, emotion).then(resolve);
+          resolve();
         };
 
         try {
           window.speechSynthesis.speak(utterance);
-        } catch (e) {
-          console.warn('speak call error, falling back to DSP:', e);
-          speakWithDsp(text, voice, emotion).then(resolve);
-          return;
+        } catch {
+          setIsPlaying(false);
+          setIsPaused(false);
+          resolve();
         }
-
-        // Failsafe watchdog
-        setTimeout(() => {
-          if (!started && activeUtteranceRef.current === utterance && !isPlaying) {
-            console.warn('SpeechSynthesis watchdog triggered fallback');
-            speakWithDsp(text, voice, emotion).then(resolve);
-          }
-        }, 900);
       });
     },
-    [stop, speakWithDsp, isPlaying]
+    [stop, speechSpeed]
   );
 
-  // Play with ElevenLabs API
+  // Play with ElevenLabs API (Online with API Key)
   const speakWithElevenLabs = useCallback(
     async (text: string, voice: VoiceType, emotion: EmotionType): Promise<void> => {
       stop();
@@ -388,11 +397,11 @@ export function useSpeechSynthesis() {
       setErrorMessage(null);
 
       try {
-        const targetVoiceId = getVoiceIdForType(voice, elevenLabsVoiceId);
+        const effectiveVoiceId = customVoiceId.trim() || getVoiceIdForType(voice, elevenLabsVoiceId);
         const audioBlob = await synthesizeWithElevenLabs(
           text,
           elevenLabsApiKey,
-          targetVoiceId,
+          effectiveVoiceId,
           emotion
         );
 
@@ -404,22 +413,70 @@ export function useSpeechSynthesis() {
         setIsPlaying(true);
         setIsPaused(false);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'خطا در تبدیل آنلاین الون‌لبز';
+        const msg = err instanceof Error ? err.message : 'خطا در تبدیل آنلاین ElevenLabs';
         setErrorMessage(msg);
-        console.warn('ElevenLabs failed, automatically falling back to offline voice:', err);
+        console.warn('ElevenLabs failed, automatically falling back to neural speech:', err);
 
-        // Fallback to offline speech
-        const detection = detectLanguage(text);
-        if (offlineEngineMode === 'dsp') {
-          await speakWithDsp(text, voice, emotion);
-        } else {
-          await speakWithBrowser(text, voice, emotion, detection.language);
+        // Fallback to high quality neural voice
+        try {
+          const neuralBlob = await synthesizeNeuralSpeech({
+            text,
+            voice,
+            emotion,
+            rate: Math.round((speechSpeed - 1.0) * 50),
+            pitch: speechPitch,
+          });
+          await globalAudioPlayer.playBlob(neuralBlob, () => {
+            setIsPlaying(false);
+            setIsPaused(false);
+          });
+          setIsPlaying(true);
+          setIsPaused(false);
+        } catch {
+          await speakWithBrowser(text, voice, emotion);
         }
       } finally {
         setIsSynthesizing(false);
       }
     },
-    [stop, elevenLabsVoiceId, elevenLabsApiKey, offlineEngineMode, speakWithBrowser, speakWithDsp]
+    [stop, customVoiceId, elevenLabsVoiceId, elevenLabsApiKey, speechSpeed, speechPitch, speakWithBrowser]
+  );
+
+  // Play with Microsoft Neural Persian (100% fluent, NO VPN, NO API Key)
+  const speakWithNeural = useCallback(
+    async (text: string, voice: VoiceType, emotion: EmotionType): Promise<void> => {
+      stop();
+      setIsSynthesizing(true);
+      setActiveEngine('neural');
+      setErrorMessage(null);
+
+      try {
+        const ratePercent = Math.round((speechSpeed - 1.0) * 50);
+        const audioBlob = await synthesizeNeuralSpeech({
+          text,
+          voice,
+          emotion,
+          rate: ratePercent,
+          pitch: speechPitch,
+        });
+
+        await globalAudioPlayer.playBlob(audioBlob, () => {
+          setIsPlaying(false);
+          setIsPaused(false);
+        });
+
+        setIsPlaying(true);
+        setIsPaused(false);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'خطا در سنتز صدا با موتور هوشمند';
+        console.warn('Neural TTS failed, falling back to browser speech:', msg);
+        // Fallback to local browser speech
+        await speakWithBrowser(text, voice, emotion);
+      } finally {
+        setIsSynthesizing(false);
+      }
+    },
+    [stop, speechSpeed, speechPitch, speakWithBrowser]
   );
 
   // Main Speak function
@@ -435,7 +492,6 @@ export function useSpeechSynthesis() {
       }
 
       const detection = detectLanguage(trimmed);
-      const isOnlineElevenLabs = isElevenLabsEnabled && Boolean(elevenLabsApiKey.trim());
 
       // Save to history
       const historyItem: HistoryItem = {
@@ -444,34 +500,36 @@ export function useSpeechSynthesis() {
         language: detection.language,
         voice,
         emotion,
-        engine: isOnlineElevenLabs ? 'elevenlabs' : offlineEngineMode === 'dsp' ? 'dsp' : 'browser',
+        engine: activeEngineMode === 'elevenlabs' ? 'elevenlabs' : activeEngineMode === 'offline' ? 'browser' : 'neural',
         timestamp: Date.now(),
         duration: detection.estimatedDurationSeconds,
       };
 
       saveHistory([historyItem, ...history.filter((h) => h.text !== trimmed)]);
 
-      if (isOnlineElevenLabs) {
-        await speakWithElevenLabs(trimmed, voice, emotion);
-      } else if (offlineEngineMode === 'dsp') {
-        await speakWithDsp(trimmed, voice, emotion);
-      } else {
-        try {
-          await speakWithBrowser(trimmed, voice, emotion, detection.language);
-        } catch {
-          await speakWithDsp(trimmed, voice, emotion);
+      if (activeEngineMode === 'elevenlabs') {
+        if (!elevenLabsApiKey.trim()) {
+          setErrorMessage('لطفاً ابتدا کلید API اختصاصی ElevenLabs را وارد یا ذخیره کنید.');
+          // Use neural voice seamlessly
+          await speakWithNeural(trimmed, voice, emotion);
+          return;
         }
+        await speakWithElevenLabs(trimmed, voice, emotion);
+      } else if (activeEngineMode === 'offline') {
+        await speakWithBrowser(trimmed, voice, emotion);
+      } else {
+        // Standard Neural Voice (No VPN, No API Key, Studio Quality)
+        await speakWithNeural(trimmed, voice, emotion);
       }
     },
     [
-      isElevenLabsEnabled,
+      activeEngineMode,
       elevenLabsApiKey,
-      offlineEngineMode,
       history,
       saveHistory,
       speakWithElevenLabs,
+      speakWithNeural,
       speakWithBrowser,
-      speakWithDsp,
     ]
   );
 
@@ -483,12 +541,21 @@ export function useSpeechSynthesis() {
       setIsSynthesizing(true);
       setErrorMessage(null);
       try {
-        if (isElevenLabsEnabled && elevenLabsApiKey.trim()) {
-          const targetVoiceId = getVoiceIdForType(voice, elevenLabsVoiceId);
-          const blob = await synthesizeWithElevenLabs(trimmed, elevenLabsApiKey, targetVoiceId, emotion);
+        if (activeEngineMode === 'elevenlabs' && elevenLabsApiKey.trim()) {
+          const effectiveVoiceId = customVoiceId.trim() || getVoiceIdForType(voice, elevenLabsVoiceId);
+          const blob = await synthesizeWithElevenLabs(trimmed, elevenLabsApiKey, effectiveVoiceId, emotion);
           downloadBlob(blob, `avaye-iran-${Date.now()}.mp3`);
         } else {
-          await exportToWav(trimmed, voice, emotion);
+          // Download pristine neural MP3 (universal high compatibility)
+          const ratePercent = Math.round((speechSpeed - 1.0) * 50);
+          const blob = await synthesizeNeuralSpeech({
+            text: trimmed,
+            voice,
+            emotion,
+            rate: ratePercent,
+            pitch: speechPitch,
+          });
+          downloadBlob(blob, `avaye-iran-${Date.now()}.mp3`);
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'خطا در خروجی فایل صوتی';
@@ -497,31 +564,14 @@ export function useSpeechSynthesis() {
         setIsSynthesizing(false);
       }
     },
-    [isElevenLabsEnabled, elevenLabsApiKey, elevenLabsVoiceId]
+    [activeEngineMode, elevenLabsApiKey, customVoiceId, elevenLabsVoiceId, speechSpeed, speechPitch]
   );
 
   const handleDownloadMp3 = useCallback(
     async (text: string, voice: VoiceType, emotion: EmotionType) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      setIsSynthesizing(true);
-      setErrorMessage(null);
-      try {
-        if (isElevenLabsEnabled && elevenLabsApiKey.trim()) {
-          const targetVoiceId = getVoiceIdForType(voice, elevenLabsVoiceId);
-          const blob = await synthesizeWithElevenLabs(trimmed, elevenLabsApiKey, targetVoiceId, emotion);
-          downloadBlob(blob, `avaye-iran-${Date.now()}.mp3`);
-        } else {
-          await exportToMp3(trimmed, voice, emotion);
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'خطا در خروجی فایل صوتی';
-        setErrorMessage(msg);
-      } finally {
-        setIsSynthesizing(false);
-      }
+      await handleDownloadWav(text, voice, emotion);
     },
-    [isElevenLabsEnabled, elevenLabsApiKey, elevenLabsVoiceId]
+    [handleDownloadWav]
   );
 
   return {
@@ -529,13 +579,21 @@ export function useSpeechSynthesis() {
     isPaused,
     isSynthesizing,
     activeEngine,
+    activeEngineMode,
+    changeActiveEngineMode,
     offlineEngineMode,
     changeOfflineEngineMode,
+    speechSpeed,
+    setSpeechSpeed,
+    speechPitch,
+    setSpeechPitch,
     history,
     errorMessage,
     setErrorMessage,
     elevenLabsApiKey,
     elevenLabsVoiceId,
+    customVoiceId,
+    setCustomVoiceId,
     isElevenLabsEnabled,
     elevenLabsVoices,
     isValidatingKey,
