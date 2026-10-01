@@ -15,7 +15,7 @@ import {
   getVoiceIdForType,
   synthesizeWithElevenLabs,
 } from '../services/elevenlabs';
-import { synthesizeNeuralSpeech } from '../services/neuralSpeech';
+import { getNeuralServerUrl, setNeuralServerUrl, synthesizeNeuralSpeech } from '../services/neuralSpeech';
 import { globalAudioPlayer } from '../utils/audioBufferPlayer';
 import { downloadBlob } from '../utils/audioExporter';
 import { preparePersianSpeechText } from '../utils/persianNormalizer';
@@ -38,6 +38,7 @@ export function useSpeechSynthesis() {
   // Speed and Pitch Tuning
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [speechPitch, setSpeechPitch] = useState<number>(0);
+  const [neuralServerUrl, setNeuralServerUrlState] = useState<string>('');
 
   // ElevenLabs State
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState<string>('');
@@ -74,9 +75,16 @@ export function useSpeechSynthesis() {
       if (savedEnabled === 'true' && savedKey && savedKey.trim().length > 0) {
         setIsElevenLabsEnabled(true);
       }
+      setNeuralServerUrlState(getNeuralServerUrl());
     } catch (e) {
       console.warn('Error reading saved configuration:', e);
     }
+  }, []);
+
+  const updateNeuralServerUrl = useCallback((url: string) => {
+    const clean = url.trim().replace(/\/$/, '');
+    setNeuralServerUrl(clean);
+    setNeuralServerUrlState(clean);
   }, []);
 
   // Change active mode
@@ -389,6 +397,8 @@ export function useSpeechSynthesis() {
     setSpeechSpeed,
     speechPitch,
     setSpeechPitch,
+    neuralServerUrl,
+    updateNeuralServerUrl,
     history,
     errorMessage,
     setErrorMessage,

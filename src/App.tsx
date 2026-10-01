@@ -31,6 +31,8 @@ export default function App() {
     setSpeechSpeed,
     speechPitch,
     setSpeechPitch,
+    neuralServerUrl,
+    updateNeuralServerUrl,
     history,
     errorMessage,
     setErrorMessage,
@@ -186,6 +188,8 @@ export default function App() {
         onUpdateKey={updateElevenLabsKey}
         onToggleEnabled={toggleElevenLabsEnabled}
         onSelectVoiceId={selectElevenLabsVoice}
+        neuralServerUrl={neuralServerUrl}
+        onUpdateNeuralServerUrl={updateNeuralServerUrl}
         onRefreshVoices={loadElevenLabsVoices}
         history={history}
         onPlayHistoryItem={handleHistoryPlay}
